@@ -1,0 +1,8 @@
+.env
+.venv
+*.txt
+*.pdf
+*.docx
+__pycache__
+/diagnosis_vectordb
+/nutrition_vectordb
