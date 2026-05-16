@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MedPulse — AI Health Report System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&family=Libre+Baskerville:ital@0;1&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f4f1eb;
+    --surface: #faf9f6;
+    --card: #ffffff;
+    --border: #d6d2c8;
+    --border-strong: #b8b2a4;
+    --text-primary: #1a1916;
+    --text-secondary: #5c5a55;
+    --text-muted: #9c9890;
+    --accent: #2d5016;
+    --accent-light: #e8f0e0;
+    --accent-mid: #4a7c28;
+    --danger: #8b2020;
+    --danger-light: #f5e8e8;
+    --amber: #7a4f00;
+    --amber-light: #fdf3e0;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+    --serif: 'Libre Baskerville', serif;
+    --radius: 4px;
+    --radius-lg: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Header ─── */
+  header {
+    background: var(--text-primary);
+    color: #f4f1eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 52px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-size: 15px; font-weight: 700; letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px; }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: #7db84e; }
+  .header-meta { font-family: var(--mono); font-size: 11px; color: #888; display: flex; gap: 1.5rem; }
+  .status-pill { display: flex; align-items: center; gap: 5px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #7db84e; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+  /* ─── View Management ─── */
+  .view { display: none; flex-direction: column; height: calc(100vh - 52px); }
+  .view.active { display: flex; }
+
+  /* ─── WORKSPACE VIEW ─── */
+  #workspace { flex-direction: row; overflow: hidden; }
+
+  /* Left Panel */
+  .panel-left {
+    width: 280px;
+    min-width: 280px;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.35s cubic-bezier(0.4,0,0.2,1), min-width 0.35s;
+  }
+  .panel-left.collapsed { width: 0; min-width: 0; border-right: none; }
+
+  .panel-header {
+    padding: 1rem 1.25rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-title { font-size: 10px; font-family: var(--mono); letter-spacing: 0.12em; color: var(--text-muted); text-transform: uppercase; }
+  .panel-toggle { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 14px; padding: 2px 4px; border-radius: var(--radius); transition: background 0.15s, color 0.15s; }
+  .panel-toggle:hover { background: var(--bg); color: var(--text-primary); }
+
+  .panel-body { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  /* Patient info card */
+  .info-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    font-size: 13px;
+  }
+  .info-card-label { font-family: var(--mono); font-size: 10px; color: var(--text-muted); letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+  .info-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 0.5px solid var(--border); }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--text-secondary); }
+  .info-val { color: var(--text-primary); font-weight: 600; font-family: var(--mono); font-size: 12px; }
+  .info-empty { color: var(--text-muted); font-style: italic; font-size: 12px; text-align: center; padding: 1rem 0; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: var(--surface);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent-mid); background: var(--accent-light); }
+  .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-icon { font-size: 20px; color: var(--text-muted); margin-bottom: 0.5rem; }
+  .upload-label { font-size: 12px; color: var(--text-secondary); }
+  .upload-hint { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-family: var(--mono); }
+
+  .file-badges { display: flex; flex-direction: column; gap: 6px; }
+  .file-badge {
+    background: var(--accent-light);
+    border: 1px solid #b8d498;
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent);
+  }
+  .file-badge i { flex-shrink: 0; }
+  .file-badge .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 11px; }
+  .file-remove { background: none; border: none; cursor: pointer; color: var(--accent); font-size: 12px; flex-shrink: 0; }
+
+  /* Process btn */
+  .btn-process {
+    background: var(--text-primary);
+    color: #f4f1eb;
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.7rem 1rem;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-process:hover:not(:disabled) { opacity: 0.88; }
+  .btn-process:active { transform: scale(0.98); }
+  .btn-process:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .processing-state { text-align: center; padding: 1rem; }
+  .spinner { width: 28px; height: 28px; border: 2px solid var(--border); border-top-color: var(--accent-mid); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 0.5rem; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-label { font-size: 11px; font-family: var(--mono); color: var(--text-secondary); }
+  .processing-step { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ─── Center Panel ─── */
+  .panel-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  .report-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 1.5rem;
+    gap: 0;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.75rem 1.25rem;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+  }
+  .tab-btn.active { color: var(--text-primary); border-bottom-color: var(--accent-mid); }
+  .tab-btn:hover:not(.active) { color: var(--text-secondary); }
+
+  .report-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+    background: var(--bg);
+  }
+
+  .report-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .report-empty .big-icon { font-size: 36px; margin-bottom: 0.5rem; }
+  .report-empty p { font-size: 13px; }
+  .report-empty small { font-size: 11px; font-family: var(--mono); }
+
+  .report-content {
+    max-width: 680px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem 2.25rem;
+    box-shadow: var(--shadow);
+  }
+  .report-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .report-type { font-size: 10px; font-family: var(--mono); letter-spacing: 0.12em; color: var(--text-muted); margin-bottom: 4px; }
+  .report-title { font-size: 20px; font-weight: 700; }
+  .report-badge { font-size: 10px; background: var(--accent-light); color: var(--accent); border: 1px solid #b8d498; border-radius: 20px; padding: 3px 10px; font-family: var(--mono); white-space: nowrap; }
+
+  .report-section { margin-bottom: 1.5rem; }
+  .report-section-title { font-size: 11px; font-family: var(--mono); letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 8px; }
+  .report-section-title::after { content: ''; flex: 1; height: 0.5px; background: var(--border); }
+  .report-section p { font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 0.5rem; }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 0.75rem; }
+  .metric-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem; text-align: center; }
+  .metric-val { font-size: 20px; font-weight: 700; font-family: var(--mono); }
+  .metric-lbl { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-family: var(--mono); }
+
+  .item-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .item-list li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+  .item-list li::before { content: '→'; font-family: var(--mono); color: var(--accent-mid); flex-shrink: 0; margin-top: 1px; }
+
+  /* ─── Right Panel (Questions) ─── */
+  .panel-right {
+    width: 300px;
+    min-width: 300px;
+    background: var(--card);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.35s cubic-bezier(0.4,0,0.2,1), min-width 0.35s;
+  }
+  .panel-right.collapsed { width: 0; min-width: 0; border-left: none; }
+
+  .q-list { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .q-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--surface);
+    transition: border-color 0.2s;
+  }
+  .q-card.answered { border-color: #b8d498; background: var(--accent-light); }
+  .q-text { padding: 0.75rem 1rem; font-size: 13px; line-height: 1.5; color: var(--text-primary); font-weight: 500; }
+  .q-options { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--border); }
+  .q-opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 0.5px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .q-opt:last-child { border-bottom: none; }
+  .q-opt:hover { background: rgba(0,0,0,0.03); }
+  .q-opt input[type="radio"] { accent-color: var(--accent-mid); }
+  .q-opt.selected { background: var(--accent-light); color: var(--accent); font-weight: 600; }
+
+  .q-empty { text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 12px; }
+
+  .panel-right-footer { padding: 1rem; border-top: 1px solid var(--border); }
+  .btn-finalize {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.65rem;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-finalize:hover:not(:disabled) { opacity: 0.85; }
+  .btn-finalize:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ─── PRINT VIEW ─── */
+  #printview {
+    flex-direction: column;
+    background: var(--bg);
+  }
+
+  .print-topbar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .print-topbar-left { display: flex; align-items: center; gap: 1rem; }
+  .print-back-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.85rem;
+    font-family: var(--sans);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    transition: background 0.15s;
+  }
+  .print-back-btn:hover { background: var(--bg); }
+  .patient-chip { font-family: var(--mono); font-size: 11px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; }
+
+  .btn-print {
+    background: var(--text-primary);
+    color: #f4f1eb;
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.55rem 1.25rem;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s;
+  }
+  .btn-print:hover { opacity: 0.85; }
+
+  .docs-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem 2rem;
+    overflow-y: auto;
+  }
+
+  .doc-sheet {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 2rem 2.25rem;
+    box-shadow: var(--shadow);
+    overflow-y: auto;
+  }
+  .doc-sheet-header { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+  .doc-sheet-sub { font-size: 10px; font-family: var(--mono); letter-spacing: 0.12em; color: var(--text-muted); margin-bottom: 4px; }
+  .doc-sheet-title { font-size: 18px; font-weight: 700; }
+  .doc-sheet-body { font-size: 13px; line-height: 1.8; color: var(--text-secondary); }
+  .doc-sheet-body h4 { font-size: 11px; font-family: var(--mono); letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; margin: 1.25rem 0 0.5rem; }
+  .doc-sheet-body p { margin-bottom: 0.5rem; }
+  .doc-sheet-body ul { list-style: none; padding: 0; }
+  .doc-sheet-body ul li { padding: 3px 0; display: flex; gap: 8px; }
+  .doc-sheet-body ul li::before { content: '·'; color: var(--accent-mid); font-weight: 700; }
+
+  /* ─── Utilities ─── */
+  .hidden { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; clip: rect(0,0,0,0); overflow: hidden; }
+
+  /* ─── Toast ─── */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--text-primary);
+    color: #f4f1eb;
+    padding: 0.6rem 1.25rem;
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-family: var(--mono);
+    z-index: 999;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media print {
+    header, .print-topbar { display: none; }
+    .docs-grid { grid-template-columns: 1fr 1fr; padding: 0; gap: 1rem; }
+    .doc-sheet { box-shadow: none; break-inside: avoid; }
+    #workspace, #printview { height: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    MEDPULSE
+  </div>
+  <div class="header-meta">
+    <div class="status-pill">
+      <div class="status-dot" id="apiStatus"></div>
+      <span id="apiStatusLabel">API ready</span>
+    </div>
+    <span id="headerPatient" style="color:#ccc;">No patient loaded</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  WORKSPACE VIEW                             -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="view active" id="workspace">
+
+  <!-- LEFT: Upload + Patient Info -->
+  <div class="panel-left" id="panelLeft">
+    <div class="panel-header">
+      <span class="panel-title">Patient File</span>
+      <button class="panel-toggle" onclick="togglePanel('left')" title="Collapse"><i class="fa fa-chevron-left"></i></button>
+    </div>
+    <div class="panel-body">
+
+      <div class="info-card" id="patientInfoCard">
+        <div class="info-card-label">Extracted Patient Data</div>
+        <div id="patientInfoRows" class="info-empty">Upload a report to extract patient information.</div>
+      </div>
+
+      <div id="fileSection">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple />
+          <div class="upload-icon"><i class="fa fa-file-medical"></i></div>
+          <div class="upload-label">Drop medical report here</div>
+          <div class="upload-hint">PDF, JPEG, PNG, DOC · max 20MB</div>
+        </div>
+        <div id="fileBadges" class="file-badges hidden" style="margin-top:8px;"></div>
+      </div>
+
+      <div id="processSection">
+        <div id="processBtn">
+          <button class="btn-process" id="analyzeBtn" onclick="analyzeReport()" disabled>
+            <i class="fa fa-brain"></i> Analyse Report
+          </button>
+        </div>
+        <div id="processingState" class="processing-state hidden">
+          <div class="spinner"></div>
+          <div class="processing-label">Analysing with AI…</div>
+          <div class="processing-step" id="processingStep">Parsing document</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- LEFT TOGGLE (when collapsed) -->
+  <button id="leftReveal" class="hidden" onclick="togglePanel('left')" style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:10;background:var(--card);border:1px solid var(--border);border-left:none;border-radius:0 var(--radius) var(--radius) 0;padding:0.75rem 0.4rem;cursor:pointer;color:var(--text-secondary);">
+    <i class="fa fa-chevron-right"></i>
+  </button>
+
+  <!-- CENTER: Report Preview -->
+  <div class="panel-center">
+    <div class="report-tabs">
+      <button class="tab-btn active" onclick="switchTab('summary')">Summary Report</button>
+      <button class="tab-btn" onclick="switchTab('fitness')">Fitness Report</button>
+      <button class="tab-btn" onclick="switchTab('diet')">Diet Report</button>
+    </div>
+    <div class="report-body" id="reportBody">
+      <div class="report-empty" id="reportEmpty">
+        <div class="big-icon"><i class="fa fa-file-medical-alt" style="color:var(--border-strong);"></i></div>
+        <p>Reports will appear here</p>
+        <small>Upload a medical report and click Analyse</small>
+      </div>
+      <div id="reportContent" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Questions Panel -->
+  <div class="panel-right" id="panelRight">
+    <div class="panel-header">
+      <button class="panel-toggle" onclick="togglePanel('right')" title="Collapse" style="margin-right:auto;"><i class="fa fa-chevron-right"></i></button>
+      <span class="panel-title" style="margin-left:0.5rem;">Follow-up Questions</span>
+    </div>
+    <div class="q-list" id="questionList">
+      <div class="q-empty" id="qEmpty">Questions generated by AI will appear here after analysis.</div>
+    </div>
+    <div class="panel-right-footer">
+      <button class="btn-finalize" id="finalizeBtn" onclick="finalizeAndPrint()" disabled>
+        Finalize & View Reports →
+      </button>
+    </div>
+  </div>
+
+  <!-- RIGHT TOGGLE (when collapsed) -->
+  <button id="rightReveal" class="hidden" onclick="togglePanel('right')" style="position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:10;background:var(--card);border:1px solid var(--border);border-right:none;border-radius:var(--radius) 0 0 var(--radius);padding:0.75rem 0.4rem;cursor:pointer;color:var(--text-secondary);">
+    <i class="fa fa-chevron-left"></i>
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  PRINT / FINAL VIEW                         -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="view" id="printview">
+  <div class="print-topbar">
+    <div class="print-topbar-left">
+      <button class="print-back-btn" onclick="backToWorkspace()"><i class="fa fa-arrow-left"></i> Back</button>
+      <span class="patient-chip" id="printPatientChip">—</span>
+    </div>
+    <button class="btn-print" onclick="window.print()"><i class="fa fa-print"></i> Print</button>
+  </div>
+  <div class="docs-grid">
+    <div class="doc-sheet" id="printFitnessSheet">
+      <div class="doc-sheet-header">
+        <div class="doc-sheet-sub">MEDPULSE · FITNESS RECOMMENDATION</div>
+        <div class="doc-sheet-title">Fitness Report</div>
+      </div>
+      <div class="doc-sheet-body" id="printFitnessBody">Generating…</div>
+    </div>
+    <div class="doc-sheet" id="printDietSheet">
+      <div class="doc-sheet-header">
+        <div class="doc-sheet-sub">MEDPULSE · DIETARY RECOMMENDATION</div>
+        <div class="doc-sheet-title">Diet Report</div>
+      </div>
+      <div class="doc-sheet-body" id="printDietBody">Generating…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ─────────────────────────────────────────
+   CONFIG — change to your backend URL
+───────────────────────────────────────── */
+const API_BASE = "http://localhost:8000";   // your FastAPI / Flask backend
+
+/* ─────────────────────────────────────────
+   STATE
+───────────────────────────────────────── */
+let state = {
+  files: [],
+  fileBase64: [],
+  patientInfo: {},
+  summaryReport: null,
+  fitnessReport: null,
+  dietReport: null,
+  questions: [],
+  answers: {},
+  activeTab: "summary",
+};
+
+/* ─────────────────────────────────────────
+   FILE UPLOAD
+───────────────────────────────────────── */
+const uploadZone = document.getElementById("uploadZone");
+const fileInput = document.getElementById("fileInput");
+
+uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("drag-over"); });
+uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("drag-over"));
+uploadZone.addEventListener("drop", e => {
+  e.preventDefault(); uploadZone.classList.remove("drag-over");
+  const fs = Array.from(e.dataTransfer.files || []);
+  if (fs.length) setFiles(fs);
+});
+fileInput.addEventListener("change", () => { if (fileInput.files && fileInput.files.length) setFiles(Array.from(fileInput.files)); });
+
+function setFiles(fs) {
+  state.files = fs;
+  const badgesContainer = document.getElementById("fileBadges");
+  badgesContainer.innerHTML = "";
+  document.getElementById("analyzeBtn").disabled = false;
+  state.fileBase64 = [];
+  fs.forEach((f, idx) => {
+    const badge = document.createElement("div");
+    badge.className = "file-badge";
+    badge.id = "badge-" + idx;
+    badge.innerHTML = `
+      <i class="fa fa-file-alt"></i>
+      <span class="fname">${f.name}</span>
+      <button class="file-remove" onclick="removeFileAt(${idx})" title="Remove"><i class="fa fa-times"></i></button>
+    `;
+    badgesContainer.appendChild(badge);
+    
+    const reader = new FileReader();
+    reader.onload = e => { state.fileBase64[idx] = e.target.result.split(",")[1]; };
+    reader.readAsDataURL(f);
+  });
+  badgesContainer.classList.remove("hidden");
+}
+
+function removeFileAt(idx) {
+  state.files.splice(idx, 1);
+  state.fileBase64.splice(idx, 1);
+  if (state.files.length === 0) {
+    fileInput.value = "";
+    document.getElementById("fileBadges").classList.add("hidden");
+    document.getElementById("analyzeBtn").disabled = true;
+  } else {
+    setFiles(state.files);
+  }
+}
+
+function removeFile() {
+  state.files = [];
+  state.fileBase64 = [];
+  fileInput.value = "";
+  document.getElementById("fileBadges").classList.add("hidden");
+  document.getElementById("analyzeBtn").disabled = true;
+}
+
+/* ─────────────────────────────────────────
+   PANEL TOGGLES
+───────────────────────────────────────── */
+function togglePanel(side) {
+  const panel = document.getElementById(side === "left" ? "panelLeft" : "panelRight");
+  const reveal = document.getElementById(side === "left" ? "leftReveal" : "rightReveal");
+  const isCollapsed = panel.classList.toggle("collapsed");
+  reveal.classList.toggle("hidden", !isCollapsed);
+}
+
+/* ─────────────────────────────────────────
+   TAB SWITCH
+───────────────────────────────────────── */
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll(".tab-btn").forEach((b, i) => b.classList.toggle("active", (i === 0 && tab === "summary") || (i === 1 && tab === "fitness") || (i === 2 && tab === "diet")));
+  renderReport();
+}
+
+/* ─────────────────────────────────────────
+   MAIN ANALYSIS FLOW
+   ↓ calls your backend → backend calls LLM → returns JSON
+───────────────────────────────────────── */
+async function analyzeReport() {
+  if (!state.files || state.files.length === 0) return;
+  showProcessing(true);
+  setStep("Sending to backend…");
+
+  try {
+    /* ── Step 1: Upload file to backend ── */
+    const formData = new FormData();
+    // append all selected files
+    state.files.forEach((f, i) => formData.append('file' + (i>0? i : ''), f));
+
+    const uploadResp = await fetchBackend("/upload", { method: "POST", body: formData });
+    /* Expected: { file_id: "abc123" } */
+    const { file_id } = await uploadResp.json();
+
+    setStep("Extracting patient info…");
+
+    /* ── Step 2: Extract patient info ── */
+    const infoResp = await fetchBackend("/extract-info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_id })
+    });
+    /* Expected: { name, gender, age, blood_type, ... } */
+    const patientInfo = await infoResp.json();
+    state.patientInfo = patientInfo;
+    renderPatientInfo(patientInfo);
+    document.getElementById("headerPatient").textContent = patientInfo.name || "Unknown patient";
+
+    setStep("Generating reports…");
+
+    /* ── Step 3: Generate fitness + diet reports ── */
+    const reportsResp = await fetchBackend("/generate-reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_id, patient_info: patientInfo })
+    });
+    /* Expected: { fitness: { ... }, diet: { ... }, summary: { ... } } */
+    const { fitness, diet, summary } = await reportsResp.json();
+    state.summaryReport = summary;
+    state.fitnessReport = fitness;
+    state.dietReport = diet;
+    renderReport();
+
+    setStep("Generating follow-up questions…");
+
+    /* ── Step 4: Generate follow-up questions ── */
+    const qResp = await fetchBackend("/generate-questions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ file_id, patient_info: patientInfo })
+    });
+    /* Expected: [ { id, text, options: ["Yes","No","Sometimes"] }, ... ] */
+    const questions = await qResp.json();
+    state.questions = questions;
+    renderQuestions(questions);
+
+  } catch (err) {
+    console.error(err);
+    showToast("Error: " + (err.message || "Backend unreachable. Check console."));
+  } finally {
+    showProcessing(false);
+  }
+}
+
+/* Helper — wraps fetch with base URL */
+async function fetchBackend(path, opts = {}) {
+  const resp = await fetch(API_BASE + path, opts);
+  if (!resp.ok) {
+    const msg = await resp.text();
+    throw new Error(`[${resp.status}] ${path}: ${msg}`);
+  }
+  return resp;
+}
+
+function setStep(txt) { document.getElementById("processingStep").textContent = txt; }
+
+function showProcessing(on) {
+  document.getElementById("processBtn").classList.toggle("hidden", on);
+  document.getElementById("processingState").classList.toggle("hidden", !on);
+}
+
+/* ─────────────────────────────────────────
+   RENDER PATIENT INFO
+───────────────────────────────────────── */
+function renderPatientInfo(info) {
+  const fields = [
+    ["Name", info.name],
+    ["Gender", info.gender],
+    ["Age", info.age],
+    ["Blood Type", info.blood_type],
+    ["Conditions", info.conditions],
+    ["Medications", info.medications],
+  ];
+  const container = document.getElementById("patientInfoRows");
+  container.innerHTML = "";
+  container.className = "";
+  fields.forEach(([key, val]) => {
+    if (!val) return;
+    const row = document.createElement("div");
+    row.className = "info-row";
+    row.innerHTML = `<span class="info-key">${key}</span><span class="info-val">${val}</span>`;
+    container.appendChild(row);
+  });
+}
+
+/* ─────────────────────────────────────────
+   RENDER REPORT (center panel)
+───────────────────────────────────────── */
+function renderReport() {
+  let data;
+  if (state.activeTab === "summary") {
+    data = state.summaryReport;
+  } else if (state.activeTab === "fitness") {
+    data = state.fitnessReport;
+  } else {
+    data = state.dietReport;
+  }
+  const empty = document.getElementById("reportEmpty");
+  const content = document.getElementById("reportContent");
+
+  if (!data) { empty.classList.remove("hidden"); content.classList.add("hidden"); return; }
+  empty.classList.add("hidden");
+  content.classList.remove("hidden");
+
+  if (state.activeTab === "fitness") {
+    content.innerHTML = renderFitnessHTML(data);
+  } else if (state.activeTab === "diet") {
+    content.innerHTML = renderDietHTML(data);
+  } else {
+    content.innerHTML = renderSummaryHTML(data);
+  }
+}
+
+function renderFitnessHTML(d) {
+  return `<div class="report-content">
+    <div class="report-header">
+      <div>
+        <div class="report-type">FITNESS RECOMMENDATION</div>
+        <div class="report-title">${d.title || "Fitness Plan"}</div>
+      </div>
+      <div class="report-badge">AI Generated</div>
+    </div>
+    <div class="report-section">
+      <div class="report-section-title">Summary</div>
+      <p>${d.summary || "—"}</p>
+    </div>
+    ${d.metrics ? `<div class="metric-grid">
+      ${d.metrics.map(m => `<div class="metric-card"><div class="metric-val">${m.value}</div><div class="metric-lbl">${m.label}</div></div>`).join("")}
+    </div>` : ""}
+    <div class="report-section" style="margin-top:1.5rem;">
+      <div class="report-section-title">Recommended Activities</div>
+      <ul class="item-list">${(d.activities || []).map(a => `<li>${a}</li>`).join("")}</ul>
+    </div>
+    <div class="report-section">
+      <div class="report-section-title">Precautions</div>
+      <ul class="item-list">${(d.precautions || []).map(p => `<li>${p}</li>`).join("")}</ul>
+    </div>
+  </div>`;
+}
+
+function renderDietHTML(d) {
+  return `<div class="report-content">
+    <div class="report-header">
+      <div>
+        <div class="report-type">DIETARY RECOMMENDATION</div>
+        <div class="report-title">${d.title || "Diet Plan"}</div>
+      </div>
+      <div class="report-badge">AI Generated</div>
+    </div>
+    <div class="report-section">
+      <div class="report-section-title">Overview</div>
+      <p>${d.summary || "—"}</p>
+    </div>
+    <div class="report-section">
+      <div class="report-section-title">Recommended Foods</div>
+      <ul class="item-list">${(d.recommended || []).map(f => `<li>${f}</li>`).join("")}</ul>
+    </div>
+    <div class="report-section">
+      <div class="report-section-title">Foods to Avoid</div>
+      <ul class="item-list">${(d.avoid || []).map(f => `<li>${f}</li>`).join("")}</ul>
+    </div>
+    ${d.meal_plan ? `<div class="report-section">
+      <div class="report-section-title">Sample Meal Plan</div>
+      <ul class="item-list">${d.meal_plan.map(m => `<li>${m}</li>`).join("")}</ul>
+    </div>` : ""}
+  </div>`;
+}
+
+function renderSummaryHTML(d) {
+  return `<div class="report-content">
+    <div class="report-header">
+      <div>
+        <div class="report-type">HEALTH SUMMARY</div>
+        <div class="report-title">${d.title || "Summary Report"}</div>
+      </div>
+      <div class="report-badge">AI Generated</div>
+    </div>
+    <div class="report-section">
+      <div class="report-section-title">Overview</div>
+      <p>${d.summary || "—"}</p>
+    </div>
+    ${d.key_findings ? `<div class="report-section">
+      <div class="report-section-title">Key Findings</div>
+      <ul class="item-list">${(d.key_findings || []).map(f => `<li>${f}</li>`).join("")}</ul>
+    </div>` : ""}
+    ${d.recommendations ? `<div class="report-section">
+      <div class="report-section-title">General Recommendations</div>
+      <ul class="item-list">${(d.recommendations || []).map(r => `<li>${r}</li>`).join("")}</ul>
+    </div>` : ""}
+    ${d.next_steps ? `<div class="report-section">
+      <div class="report-section-title">Next Steps</div>
+      <ul class="item-list">${(d.next_steps || []).map(s => `<li>${s}</li>`).join("")}</ul>
+    </div>` : ""}
+  </div>`;
+}
+
+/* ─────────────────────────────────────────
+   RENDER QUESTIONS (right panel)
+───────────────────────────────────────── */
+function renderQuestions(questions) {
+  const list = document.getElementById("questionList");
+  const empty = document.getElementById("qEmpty");
+  if (!questions || questions.length === 0) return;
+  empty.classList.add("hidden");
+  list.innerHTML = "";
+
+  questions.forEach(q => {
+    const card = document.createElement("div");
+    card.className = "q-card";
+    card.id = "qcard-" + q.id;
+    card.innerHTML = `<div class="q-text">${q.text}</div>
+      <div class="q-options">${(q.options || []).map((opt, i) =>
+        `<label class="q-opt" id="opt-${q.id}-${i}">
+          <input type="radio" name="q-${q.id}" value="${opt}" onchange="selectAnswer('${q.id}','${opt}',${i},'${q.id}')" />
+          ${opt}
+        </label>`
+      ).join("")}</div>`;
+    list.appendChild(card);
+  });
+
+  document.getElementById("finalizeBtn").disabled = false;
+}
+
+function selectAnswer(qId, val, optIdx, cardId) {
+  state.answers[qId] = val;
+  const card = document.getElementById("qcard-" + cardId);
+  card.classList.add("answered");
+  card.querySelectorAll(".q-opt").forEach(el => el.classList.remove("selected"));
+  const opts = card.querySelectorAll(".q-opt");
+  if (opts[optIdx]) opts[optIdx].classList.add("selected");
+  checkAllAnswered();
+}
+
+function checkAllAnswered() {
+  const total = state.questions.length;
+  const answered = Object.keys(state.answers).length;
+  if (answered === total && total > 0) showToast("All questions answered — ready to finalize!");
+}
+
+/* ─────────────────────────────────────────
+   FINALIZE → switch to print view
+   Optionally re-call backend with answers
+───────────────────────────────────────── */
+async function finalizeAndPrint() {
+  /* Optional: send answers back to refine reports */
+  if (Object.keys(state.answers).length > 0 && state.patientInfo) {
+    try {
+      const resp = await fetchBackend("/refine-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_info: state.patientInfo, answers: state.answers })
+      });
+      const { fitness, diet } = await resp.json();
+      if (fitness) state.fitnessReport = fitness;
+      if (diet) state.dietReport = diet;
+    } catch (e) {
+      console.warn("Refinement failed, using original reports:", e);
+    }
+  }
+
+  buildPrintView();
+  document.getElementById("workspace").classList.remove("active");
+  document.getElementById("printview").classList.add("active");
+}
+
+function buildPrintView() {
+  const p = state.patientInfo;
+  document.getElementById("printPatientChip").textContent = p.name ? `${p.name} · ${p.gender || ""} · ${p.age || ""}` : "Anonymous Patient";
+
+  const fBody = document.getElementById("printFitnessBody");
+  const dBody = document.getElementById("printDietBody");
+  const f = state.fitnessReport;
+  const d = state.dietReport;
+
+  fBody.innerHTML = f ? `
+    <p>${f.summary || ""}</p>
+    <h4>Recommended Activities</h4>
+    <ul>${(f.activities || []).map(a => `<li>${a}</li>`).join("")}</ul>
+    <h4>Precautions</h4>
+    <ul>${(f.precautions || []).map(a => `<li>${a}</li>`).join("")}</ul>
+    ${Object.keys(state.answers).length ? `<h4>Doctor's Notes (from Q&amp;A)</h4><ul>${
+      state.questions.map(q => state.answers[q.id] ? `<li>${q.text}: <strong>${state.answers[q.id]}</strong></li>` : "").join("")
+    }</ul>` : ""}
+  ` : "<p>No fitness report generated.</p>";
+
+  dBody.innerHTML = d ? `
+    <p>${d.summary || ""}</p>
+    <h4>Recommended Foods</h4>
+    <ul>${(d.recommended || []).map(a => `<li>${a}</li>`).join("")}</ul>
+    <h4>Foods to Avoid</h4>
+    <ul>${(d.avoid || []).map(a => `<li>${a}</li>`).join("")}</ul>
+    ${d.meal_plan ? `<h4>Sample Meal Plan</h4><ul>${d.meal_plan.map(a => `<li>${a}</li>`).join("")}</ul>` : ""}
+  ` : "<p>No diet report generated.</p>";
+}
+
+function backToWorkspace() {
+  document.getElementById("printview").classList.remove("active");
+  document.getElementById("workspace").classList.add("active");
+}
+
+/* ─────────────────────────────────────────
+   TOAST
+───────────────────────────────────────── */
+function showToast(msg, duration = 3000) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), duration);
+}
+
+/* ─────────────────────────────────────────
+   CHECK API STATUS ON LOAD
+───────────────────────────────────────── */
+(async () => {
+  try {
+    const resp = await fetch(API_BASE + "/health", { signal: AbortSignal.timeout(3000) });
+    if (resp.ok) { /* stays green */ }
+    else throw new Error();
+  } catch {
+    document.getElementById("apiStatus").style.background = "#cc4444";
+    document.getElementById("apiStatus").style.animation = "none";
+    document.getElementById("apiStatusLabel").textContent = "Backend offline";
+  }
+})();
+</script>
+</body>
+</html>
