@@ -4,19 +4,6 @@ A healthcare-focused Retrieval-Augmented Generation (RAG) system that processes 
 
 <img width="1280" height="699" alt="image" src="https://github.com/user-attachments/assets/0b32bf94-2e40-44cf-9908-4447dc9b0796" />
 
-Your README has good content, but the issue is that everything is packed together with no visual hierarchy. It reads like raw notes instead of a polished GitHub project.
-
-You should:
-
-* reduce repetition
-* shorten paragraphs
-* use sections properly
-* add spacing
-* use tables where useful
-* make it scannable in 15 seconds
-
-Here’s a much cleaner structure/style:
-
 ---
 
 # Healthy-AI
@@ -219,16 +206,4 @@ Healthy-AI/
 * Allergy-aware diet generation
 * Fitness recommendation engine
 * Multi-model LLM support (Gemma, Llama)
-
----
-
-This version feels:
-
-* more startup/professional
-* easier for judges/recruiters to scan
-* cleaner on GitHub
-* less intimidating technically
-* more “production-ready”
-
-Biggest improvement: tables + spacing + reducing wall-of-text density.
 
